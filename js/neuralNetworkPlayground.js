@@ -217,6 +217,12 @@ function visualizeData() {
         }
     }
 }
+
+// Global variables to track training progress and loss
+let currentEpoch = 0;
+let totalEpochs = 100; // This can be adjusted or set dynamically
+let lossHistory = [];
+
 // Function to train the model
 async function trainModel() {
     // Initialize or re-initialize the model with the selected activation function
@@ -229,20 +235,34 @@ async function trainModel() {
     const labels = tf.tensor2d(currentData.map(p => [p.label]), [currentData.length, 1]); // Labels must also be a 2D tensor
 
 
+    // Reset global tracking variables
+    currentEpoch = 0;
+    lossHistory = [];
+
+    // Disable the dataShape selector during training
+    document.getElementById('dataShape').disabled = true;
+
     // Train the model
     await model.fit(inputs, labels, {
-        epochs: 100,
+        epochs: totalEpochs,
         callbacks: {
             onEpochEnd: async (epoch, log) => {
-                console.log(`Epoch ${epoch}: loss = ${log.loss}`);
+                currentEpoch = epoch + 1; // Update current epoch
+                lossHistory.push(log.loss); // Add loss to history
+                document.getElementById('epochInfo').innerText = `Epoch ${currentEpoch}/${totalEpochs}`;
+                document.getElementById('lossInfo').innerText = `Loss: ${log.loss.toFixed(4)}`;
+                // Update loss graph
+                updateLossGraph(lossHistory);
                 // Update visualization after each epoch
                 await updateDataVisualization();
             }
         }
     });
 
+    // Re-enable the dataShape selector after training
+    document.getElementById('dataShape').disabled = false;
+
     isTraining = true; // Set training flag to true
-    // Update the UI with training results
     document.getElementById('output').innerText = 'Training complete!';
 }
 
@@ -300,7 +320,7 @@ async function visualizeDataFlow() {
 async function drawDecisionBoundary() {
     // Use currentData instead of generateGrid
     // Predict classes for each point in the currentData
-    let predictions = await model.predict(tf.tensor2d(currentData.map(p => [p.x / width, p.y / height]))).data();
+    let predictions = await model.predict(tf.tensor2d(currentData.map(p => [p.x / width, p.y / height]), [currentData.length, 2])).data();
 
     // Draw each point based on the prediction
     for (let i = 0; i < currentData.length; i++) {
@@ -327,29 +347,32 @@ async function drawDecisionBoundary() {
   
 // Function to update visualization with latest activations
 async function updateDataVisualization() {
-    // Only update during training
     if (!isTraining) return;
 
-    // Clear the canvas
-    dataCanvas.background(255);
-    // Draw the ground truth of the data
+    // Clear the data canvas and redraw the ground truth of the data
+    dataCanvas.clear();
     visualizeData();
 
-    // Draw decision boundary based on current model predictions
+    // Draw decision boundary based on current model predictions if training has started
     if (isTraining) {
-        drawDecisionBoundary();
+        await drawDecisionBoundary();
     }
+
+    // Visualize the neural network on the networkCanvas
+    drawNetwork(networkCanvas);
 }
 
 // Function to draw the neural network visualization
 function drawNetwork(canvas) {
+    // Define spacing and sizing outside of the loop for visibility
+    let xSpacing = canvas.width / (layerVisuals.length + 1);
+    let ySpacing = canvas.height / (Math.max(...layerVisuals.map(l => l.nodes)) + 1);
+
     canvas.clear(); // Use clear instead of background to avoid covering the entire canvas
     canvas.strokeWeight(1); // Set stroke weight for visibility
 
     // Draw each layer
     layerVisuals.forEach((layer, i) => {
-        let xSpacing = canvas.width / (layerVisuals.length + 1);
-        let ySpacing = canvas.height / (Math.max(...layerVisuals.map(l => l.nodes)) + 1);
         let xPos = xSpacing * (i + 1);
         for (let j = 0; j < layer.nodes; j++) {
             let yPos = ySpacing * (j + 1);
@@ -414,6 +437,8 @@ function setup() {
     // Initial visualization before training
     visualizeData();
     drawNetwork(networkCanvas); // Pass the correct canvas
+    // Immediately visualize data when the page loads
+    selectDataset();
 }
 
 // Function to update visualization with latest activations

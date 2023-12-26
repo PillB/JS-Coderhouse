@@ -16,3 +16,12 @@ canvas {
     height: 400px;
     vertical-align: top;
 }
+
+#epochInfo, #lossInfo {
+    margin-right: 10px;
+}
+
+#lossGraph {
+    margin-top: 10px;
+    padding: 5px;
+}

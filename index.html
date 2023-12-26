@@ -32,12 +32,18 @@
     </select>    
     <button onclick="selectDataset()">Generate Dataset</button>
     <button onclick="trainModel()">Train Network</button>
+    <div>
+        <span id="epochInfo">Epoch: 0/100</span> <!-- Place this near the Train button -->
+        <span id="lossInfo">Loss: N/A</span> <!-- Place this near the Train button -->
+    </div>
     <div id="output"></div>
     <div id="Viz">
         <div id="dataViz"></div>
         <div id="nnViz"></div>
     </div>
-    
+    <div id="lossGraph" style="width: 100%; height: 200px; overflow-y: auto; border: 1px solid #ccc;">
+        <!-- Loss graph will be a simple textual representation for now -->
+    </div>
     <div>
         <label for="sampleData">Select a sample data point:</label>
         <select id="sampleData">
