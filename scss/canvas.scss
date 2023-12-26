@@ -1,0 +1,18 @@
+
+canvas {
+    border: 1px solid black;
+}
+/* Style for the visualization containers */
+#Viz {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-top: 20px;
+}
+
+#dataViz, #nnViz {
+    display: inline-block;
+    width: 50%;
+    height: 400px;
+    vertical-align: top;
+}
