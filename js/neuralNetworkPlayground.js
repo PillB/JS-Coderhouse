@@ -66,6 +66,8 @@ function selectDataset() {
     }
     isTraining = false; // Reset training flag
     updateDataVisualization(); // Visualize the new dataset
+    // Ensure we visualize the data after selection
+    prepareAndVisualizeData();
 }
 // Generates a linearly separable dataset
 function generateLinearData() {
@@ -222,6 +224,38 @@ function visualizeData() {
 let currentEpoch = 0;
 let totalEpochs = 100; // This can be adjusted or set dynamically
 let lossHistory = [];
+// Function to update the epoch and loss on the webpage
+function updateTrainingStatus(epoch, loss) {
+    document.getElementById('epochInfo').innerText = `Epoch: ${epoch}/${totalEpochs}`;
+    document.getElementById('lossInfo').innerText = `Loss: ${loss.toFixed(4)}`;
+    updateLossGraph(lossHistory); // [Fix]: Call the newly created updateLossGraph function
+}
+// [New Function]: Implementing graph logic to display a running graph of the loss
+function updateLossGraph(lossHistory) {
+    // This function will need to be implemented with a graphing library like Chart.js
+    // For simplicity, this example will update a div with the loss values
+    const lossGraphElement = document.getElementById('lossGraph');
+    lossGraphElement.innerHTML = ''; // Clear previous graph contents
+    lossHistory.forEach((loss, index) => {
+        // Append new loss value to the graph
+        // In a real implementation, this would draw on a canvas
+        const lossValueElement = document.createElement('div');
+        lossValueElement.innerText = `Epoch ${index + 1}: ${loss}`;
+        lossGraphElement.appendChild(lossValueElement);
+    });
+}
+
+// Function to prepare the data visualization canvas and draw data
+function prepareAndVisualizeData() {
+    // Make sure the canvas is ready for drawing
+    if (!dataCanvas) {
+        dataCanvas = createCanvas(300, 300);
+        dataCanvas.parent('dataViz');
+    } else {
+        dataCanvas.clear(); // Clear existing drawings
+    }
+    visualizeData(); // Draw the data points
+}
 
 // Function to train the model
 async function trainModel() {
@@ -241,13 +275,16 @@ async function trainModel() {
 
     // Disable the dataShape selector during training
     document.getElementById('dataShape').disabled = true;
-
+    // Update the DOM elements for epochs and loss before training starts
+    updateTrainingStatus(0, 0);
     // Train the model
     await model.fit(inputs, labels, {
         epochs: totalEpochs,
         callbacks: {
             onEpochEnd: async (epoch, log) => {
                 currentEpoch = epoch + 1; // Update current epoch
+                // Update the training status on the webpage
+                updateTrainingStatus(currentEpoch, log.loss);
                 lossHistory.push(log.loss); // Add loss to history
                 document.getElementById('epochInfo').innerText = `Epoch ${currentEpoch}/${totalEpochs}`;
                 document.getElementById('lossInfo').innerText = `Loss: ${log.loss.toFixed(4)}`;
@@ -271,16 +308,6 @@ let dataCanvas, networkCanvas; // Separate canvases for data and network
 // Define the resolution of the grid (lower = more points = slower)
 const resolution = 20;
 
-// Generate a grid of points across the canvas
-function generateGrid() {
-  let points = [];
-  for (let x = 0; x < width; x += resolution) {
-    for (let y = 0; y < height; y += resolution) {
-      points.push([x, y]);
-    }
-  }
-  return points;
-}
 
 // p5.js draw function
 function draw() {
@@ -414,6 +441,10 @@ function drawNetwork(canvas) {
                 }
             }
         }
+    }
+    // After drawing the network, ensure we draw the data points as well
+    if (!isTraining) {
+        prepareAndVisualizeData();
     }
 }
 
