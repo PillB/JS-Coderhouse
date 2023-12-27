@@ -6,6 +6,14 @@ const model = tf.sequential();
 // Visualization parameters
 let layerVisuals = []; // To store layer visualization data
 
+let currentData = []; // Holds the current dataset
+let isTraining = false; // Flag to check if training has started
+
+let dataCanvas, networkCanvas; // Separate canvases for data and network
+// Global variables to track training progress and loss
+let currentEpoch = 0;
+let totalEpochs = 100; // This can be adjusted or set dynamically
+let lossHistory = [];
 // Function to initialize the model
 function initializeModel(activation) {
     // Clear existing model
@@ -51,30 +59,28 @@ function selectDataset() {
             currentData = generateConcentricData();
             break;
         case 'twoClusters':
-            currentData = generateTwoClusters();
+            currentData = generateTwoClustersData();
             break;
         case 'checkerboard':
-            currentData = generateCheckerboard();
+            currentData = generateCheckerboardData();
             break;
         case 'moons':
-            currentData = generateMoons();
+            currentData = generateMoonsData();
             break;
         case 'spiral':
-            currentData = generateSpiral();
+            currentData = generateSpiralData();
             break;
         // Add more cases as needed
     }
     isTraining = false; // Reset training flag
     updateDataVisualization(); // Visualize the new dataset
-    // Ensure we visualize the data after selection
-    prepareAndVisualizeData();
 }
 // Generates a linearly separable dataset
 function generateLinearData() {
     let data = [];
-    for (let x = 0; x < width; x += resolution) {
-        for (let y = 0; y < height; y += resolution) {
-            let classLabel = x < width / 2 ? 0 : 1;
+    for (let x = 0; x < p.width; x += resolution) {
+        for (let y = 0; y < p.height; y += resolution) {
+            let classLabel = x < p.width / 2 ? 0 : 1;
             data.push({x: x, y: y, label: classLabel});
         }
     }
@@ -84,8 +90,8 @@ function generateLinearData() {
 // Generates concentric circles dataset
 function generateConcentricData() {
     let data = [];
-    let centerX = width / 2;
-    let centerY = height / 2;
+    let centerX = p.width / 2;
+    let centerY = p.height / 2;
     let maxRadius = Math.min(centerX, centerY) - 10; // Padding of 10
 
     for (let angle = 0; angle < TWO_PI; angle += 0.1) {
@@ -105,17 +111,17 @@ function generateConcentricData() {
     return data;
 }
 
-function generateTwoClusters() {
+function generateTwoClustersData() {
     let data = [];
     let pointsPerCluster = 100;
 
     // Parameters for the first cluster
-    let mean1 = [width * 0.3, height * 0.3];
-    let variance1 = [width * 0.05, height * 0.05];
+    let mean1 = [p.width * 0.3, p.height * 0.3];
+    let variance1 = [p.width * 0.05, p.height * 0.05];
 
     // Parameters for the second cluster
-    let mean2 = [width * 0.7, height * 0.7];
-    let variance2 = [width * 0.05, height * 0.05];
+    let mean2 = [p.width * 0.7, p.height * 0.7];
+    let variance2 = [p.width * 0.05, p.height * 0.05];
 
     // Generate points for the first cluster
     for (let i = 0; i < pointsPerCluster; i++) {
@@ -134,12 +140,12 @@ function generateTwoClusters() {
     return data;
 }
 
-function generateCheckerboard() {
+function generateCheckerboardData() {
     let data = [];
-    let tileSize = width / 10; // Number of tiles per row/column
+    let tileSize = p.width / 10; // Number of tiles per row/column
 
-    for (let x = 0; x < width; x += tileSize) {
-        for (let y = 0; y < height; y += tileSize) {
+    for (let x = 0; x < p.width; x += tileSize) {
+        for (let y = 0; y < p.height; y += tileSize) {
             let classLabel = (floor(x / tileSize) + floor(y / tileSize)) % 2;
             data.push({x: x + tileSize / 2, y: y + tileSize / 2, label: classLabel});
         }
@@ -148,31 +154,31 @@ function generateCheckerboard() {
     return data;
 }
 
-function generateMoons() {
+function generateMoonsData() {
     let data = [];
     let pointsPerMoon = 100;
-    let radius = width * 0.2;
+    let radius = p.width * 0.2;
 
     // Generate points for the first moon
     for (let i = 0; i < pointsPerMoon; i++) {
         let angle = random(Math.PI); // half circle
-        let x = width * 0.5 + radius * cos(angle);
-        let y = height * 0.5 + radius * sin(angle);
+        let x = p.width * 0.5 + radius * cos(angle);
+        let y = p.height * 0.5 + radius * sin(angle);
         data.push({x: x, y: y, label: 0});
     }
 
     // Generate points for the second moon
     for (let i = 0; i < pointsPerMoon; i++) {
         let angle = random(Math.PI); // half circle
-        let x = width * 0.5 + radius * cos(angle + Math.PI);
-        let y = height * 0.5 + radius * sin(angle + Math.PI);
+        let x = p.width * 0.5 + radius * cos(angle + Math.PI);
+        let y = p.height * 0.5 + radius * sin(angle + Math.PI);
         data.push({x: x, y: y, label: 1});
     }
 
     return data;
 }
 
-function generateSpiral() {
+function generateSpiralData() {
     let data = [];
     let turns = 2;
     let pointsPerTurn = 100;
@@ -180,18 +186,18 @@ function generateSpiral() {
     // Generate points for the first spiral
     for (let i = 0; i < turns * pointsPerTurn; i++) {
         let angle = map(i, 0, turns * pointsPerTurn, 0, turns * TWO_PI);
-        let radius = map(i, 0, turns * pointsPerTurn, 0, width / 3);
-        let x = width / 2 + radius * cos(angle);
-        let y = height / 2 + radius * sin(angle);
+        let radius = map(i, 0, turns * pointsPerTurn, 0, p.width / 3);
+        let x = p.width / 2 + radius * cos(angle);
+        let y = p.height / 2 + radius * sin(angle);
         data.push({x: x, y: y, label: i % 2});
     }
 
     // Generate points for the second spiral
     for (let i = 0; i < turns * pointsPerTurn; i++) {
         let angle = map(i, 0, turns * pointsPerTurn, 0, turns * TWO_PI) + Math.PI;
-        let radius = map(i, 0, turns * pointsPerTurn, 0, width / 3);
-        let x = width / 2 + radius * cos(angle);
-        let y = height / 2 + radius * sin(angle);
+        let radius = map(i, 0, turns * pointsPerTurn, 0, p.width / 3);
+        let x = p.width / 2 + radius * cos(angle);
+        let y = p.height / 2 + radius * sin(angle);
         data.push({x: x, y: y, label: (i + 1) % 2});
     }
 
@@ -199,31 +205,28 @@ function generateSpiral() {
 }
 
 
-let currentData = []; // Holds the current dataset
-let isTraining = false; // Flag to check if training has started
 
 // Add this function to draw different shapes for different classes
 function visualizeData() {
-    dataCanvas.clear(); // Clear the data canvas to prevent drawing over the network canvas
+
+    let dataCanvas = select('#dataCanvas');
     // Loop through each point in the current dataset
     for (let i = 0; i < currentData.length; i++) {
         const point = currentData[i];
         // Use the appropriate canvas context (dataCanvas)
         dataCanvas.stroke(0);
+        // Fix: Ensure that points of both classes are visualized
         if (point.label === 0) {
-            dataCanvas.fill('blue'); // Class 0
-            dataCanvas.ellipse(point.x, point.y, resolution, resolution); // Draw circle
+            dataCanvas.fill('blue'); // Class 0 as circles
+            dataCanvas.ellipse(point.x, point.y, resolution, resolution);
         } else {
-            dataCanvas.fill('red'); // Class 1
-            drawPlusSign(dataCanvas, point.x, point.y, resolution); // Draw plus sign
+            dataCanvas.fill('red'); // Class 1 as plus signs
+            drawPlusSign(dataCanvas, point.x, point.y, resolution);
         }
     }
 }
 
-// Global variables to track training progress and loss
-let currentEpoch = 0;
-let totalEpochs = 100; // This can be adjusted or set dynamically
-let lossHistory = [];
+
 // Function to update the epoch and loss on the webpage
 function updateTrainingStatus(epoch, loss) {
     document.getElementById('epochInfo').innerText = `Epoch: ${epoch}/${totalEpochs}`;
@@ -245,18 +248,6 @@ function updateLossGraph(lossHistory) {
     });
 }
 
-// Function to prepare the data visualization canvas and draw data
-function prepareAndVisualizeData() {
-    // Make sure the canvas is ready for drawing
-    if (!dataCanvas) {
-        dataCanvas = createCanvas(300, 300);
-        dataCanvas.parent('dataViz');
-    } else {
-        dataCanvas.clear(); // Clear existing drawings
-    }
-    visualizeData(); // Draw the data points
-}
-
 // Function to train the model
 async function trainModel() {
     // Initialize or re-initialize the model with the selected activation function
@@ -265,7 +256,7 @@ async function trainModel() {
 
     // Convert currentData to tensors with proper shapes
     // The shape is [num_examples, num_features_per_example]
-    const inputs = tf.tensor2d(currentData.map(p => [p.x / width, p.y / height]), [currentData.length, 2]);
+    const inputs = tf.tensor2d(currentData.map(p => [p.x / p.width, p.y / p.height]), [currentData.length, 2]);
     const labels = tf.tensor2d(currentData.map(p => [p.label]), [currentData.length, 1]); // Labels must also be a 2D tensor
 
 
@@ -303,7 +294,6 @@ async function trainModel() {
     document.getElementById('output').innerText = 'Training complete!';
 }
 
-let dataCanvas, networkCanvas; // Separate canvases for data and network
 
 // Define the resolution of the grid (lower = more points = slower)
 const resolution = 20;
@@ -311,16 +301,21 @@ const resolution = 20;
 
 // p5.js draw function
 function draw() {
-    // Clear the backgrounds
-    networkCanvas.background(200);
-    dataCanvas.background(255);
+    // Fix: Reference the correct canvas using the assigned ID
+    let dataCanvas = select('#dataCanvas');
+    let networkCanvas = select('#networkCanvas');
     
-    // Update the data visualization only if training has started
-    if (isTraining) {
-        updateDataVisualization();
+    if (dataCanvas) {
+        dataCanvas.clear();
+        if (isTraining) {
+            updateDataVisualization();
+        }
     }
-    // Draw the neural network visualization
-    drawNetwork(networkCanvas);
+
+    if (networkCanvas) {
+        networkCanvas.clear();
+        drawNetwork(networkCanvas);
+    }
 }
 
 // Function to visualize the data flow through the network
@@ -341,13 +336,13 @@ async function visualizeDataFlow() {
     }
 
     // Redraw the network with updated activations
-    draw();
+    //draw();
 }
 // Function to predict and draw the decision boundary
 async function drawDecisionBoundary() {
     // Use currentData instead of generateGrid
     // Predict classes for each point in the currentData
-    let predictions = await model.predict(tf.tensor2d(currentData.map(p => [p.x / width, p.y / height]), [currentData.length, 2])).data();
+    let predictions = await model.predict(tf.tensor2d(currentData.map(p => [p.x / p.width, p.y / p.height]), [currentData.length, 2])).data();
 
     // Draw each point based on the prediction
     for (let i = 0; i < currentData.length; i++) {
@@ -374,26 +369,24 @@ async function drawDecisionBoundary() {
   
 // Function to update visualization with latest activations
 async function updateDataVisualization() {
-    if (!isTraining) return;
-
     // Clear the data canvas and redraw the ground truth of the data
     dataCanvas.clear();
-    visualizeData();
+    visualizeData(); // Fix: Call this to redraw the initial state of the data points
 
-    // Draw decision boundary based on current model predictions if training has started
+    // Only update the visualization if the model is training
     if (isTraining) {
-        await drawDecisionBoundary();
+        await drawDecisionBoundary(); // Fix: Call this to recolor points based on the model's predictions
     }
-
-    // Visualize the neural network on the networkCanvas
     drawNetwork(networkCanvas);
 }
 
 // Function to draw the neural network visualization
 function drawNetwork(canvas) {
+
+    let networkCanvas = select('#networkCanvas');
     // Define spacing and sizing outside of the loop for visibility
-    let xSpacing = canvas.width / (layerVisuals.length + 1);
-    let ySpacing = canvas.height / (Math.max(...layerVisuals.map(l => l.nodes)) + 1);
+    let xSpacing = canvas.p.width / (layerVisuals.length + 1);
+    let ySpacing = canvas.p.height / (Math.max(...layerVisuals.map(l => l.nodes)) + 1);
 
     canvas.clear(); // Use clear instead of background to avoid covering the entire canvas
     canvas.strokeWeight(1); // Set stroke weight for visibility
@@ -442,46 +435,34 @@ function drawNetwork(canvas) {
             }
         }
     }
-    // After drawing the network, ensure we draw the data points as well
-    if (!isTraining) {
-        prepareAndVisualizeData();
-    }
 }
 
 // p5.js setup function
 function setup() {
-    // Adjust to create separate canvases for data and network visualization
+
+    console.log(p5); // This should log the p5 object if the library is loaded correctly
+    // Fix: Explicitly create the canvases for data and network visualization
+    // and assign them to the correct div elements with specific IDs.
     let dataVizContainer = select('#dataViz');
     let nnVizContainer = select('#nnViz');
 
-    // Check if the containers exist before creating canvases
     if (dataVizContainer) {
-        dataCanvas = createCanvas(300, 400);
-        dataCanvas.parent('dataViz');
+        dataCanvas = createCanvas(300, 300);
+        dataCanvas.parent(dataVizContainer);
+        dataCanvas.id('dataCanvas'); // Fix: Assign an ID to the data canvas
     }
 
     if (nnVizContainer) {
-        networkCanvas = createCanvas(300, 400);
-        networkCanvas.parent('nnViz');
+        networkCanvas = createCanvas(300, 300);
+        networkCanvas.parent(nnVizContainer);
+        networkCanvas.id('networkCanvas'); // Fix: Assign an ID to the network canvas
     }
 
     // Initial visualization before training
+    selectDataset(); // This will prepare the initial dataset visualization
     visualizeData();
-    drawNetwork(networkCanvas); // Pass the correct canvas
-    // Immediately visualize data when the page loads
-    selectDataset();
+    drawNetwork(networkCanvas); // This will render the neural network visualization immediately
 }
-
-// Function to update visualization with latest activations
-function updateVisualization() {
-    // Ideally, here you would extract the activations from the model and update 'layerVisuals'
-    // This is a placeholder to show how you might update the visualization
-    layerVisuals.forEach(layer => {
-        layer.activations = layer.activations.map(() => Math.random()); // Random activations for demonstration
-    });
-    // Redraw the network
-    draw();
-}
-
+setup();
 // Initialize the model when the script loads
 initializeModel(document.getElementById('activation').value);
