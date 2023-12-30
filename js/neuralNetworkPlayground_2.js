@@ -606,18 +606,29 @@ function generateTwoClustersData() {
 // Function to generate checkerboard dataset
 function generateCheckerboardData() {
     let data = [];
-    let tileSize = 1 / 10; // normalized tile size
+    let numTilesX = 10;  // Number of tiles in the x direction
+    let numTilesY = 10;  // Number of tiles in the y direction
+    let tileSizeX = dataAreaWidth / numTilesX;  // Size of each tile in the x direction
+    let tileSizeY = canvasHeight / numTilesY;  // Size of each tile in the y direction
 
-    for (let x = 0; x < 1; x += tileSize) {
-        for (let y = 0; y < 1; y += tileSize) {
-            let classLabel = (p.floor(x / tileSize) + p.floor(y / tileSize)) % 2;
-            data.push({x: x + tileSize / 2, y: y + tileSize / 2, label: classLabel});
+    for (let i = 0; i < numTilesX; i++) {
+        for (let j = 0; j < numTilesY; j++) {
+            let x = i * tileSizeX;
+            let y = j * tileSizeY;
+            let classLabel = (i + j) % 2;  // Calculate label based on the tile's position
+            // Normalize the coordinates to be within [0, 1]
+            data.push({
+                x: (x + tileSizeX / 2) / dataAreaWidth,
+                y: (y + tileSizeY / 2) / canvasHeight,
+                label: classLabel
+            });
         }
     }
 
     console.log("Checkerboard Data Points:", data);
     return data;
 }
+
 
 // Function to generate moons dataset
 function generateMoonsData() {
@@ -670,6 +681,7 @@ function generateSpiralData() {
 
   // Adjusting event listeners for buttons using p5.js methods
   p.select('#generateDataButton').mouseClicked(() => {
+    p.clear()
     selectDataset()
     updateDataVisualization();
   });
