@@ -224,8 +224,8 @@ function drawMiddleNetworkPoint() {
         data = [];
     }
     return data.map(d => ({
-      x: d.x / p.width,
-      y: d.y / p.height,
+      x: d.x,
+      y: d.y,
       label: d.label
     }));
   }
