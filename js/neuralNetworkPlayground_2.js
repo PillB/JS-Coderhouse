@@ -11,6 +11,7 @@ let totalEpochs = 100;
 let lossHistory = [];
 let resolution = 20;
 let dataAreaWidth, networkAreaStartX;
+let offscreenGraphics;
 
 // p5.js structure
 new p5(p => {
@@ -28,6 +29,7 @@ new p5(p => {
         // Initialize TensorFlow.js model
         initializeModel(p.select('#activation').value());
         selectDataset();  // Prepare initial visualization
+        offscreenGraphics = p.createGraphics(dataAreaWidth, canvasHeight);
         // Draw the points after the rest of the setup logic
         //drawMiddlePoint();
         //drawLowerLeftPoint();
@@ -486,11 +488,11 @@ function preTrainingChecks() {
   }
   
   // Function to update data visualization
-  function updateDataVisualization() {
-    p.background(255);
+  async function updateDataVisualization() {
+    //p.background(255);
     if (isTraining) {
         console.log(`Updating decision boundary`)
-        drawDecisionBoundary();  // Update the data visualization area with decision boundary
+        await drawDecisionBoundary();  // Update the data visualization area with decision boundary
     }
     console.log(`Updating network`)
     drawNetwork();  // This will draw on the right side
@@ -513,30 +515,30 @@ function preTrainingChecks() {
 
   // Function to draw the decision boundary
   async function drawDecisionBoundary() {
-    // Convert the entire grid to a tensor for batch prediction
+    offscreenGraphics.clear(); // Clear the off-screen graphics
     let inputTensor = tf.tensor2d(decisionBoundaryGrid);
     let predictions = await model.predict(inputTensor).data();
-
-    // Loop through each prediction and draw the corresponding rectangle
     let index = 0;
-    let gridResolution = resolution / 2; // Ensure this matches the generateDecisionGrid resolution
+    let gridResolution = resolution / 2;
+
     for (let i = 0; i < dataAreaWidth; i += gridResolution) {
         for (let j = 0; j < canvasHeight; j += gridResolution) {
             let predictedClass = predictions[index++] > 0.5 ? 1 : 0;
-
-            // Set fill color based on prediction
             if (predictedClass === 0) {
-                p.fill('rgba(0, 0, 255, 0.5)');
+                offscreenGraphics.fill('rgba(0, 0, 255, 0.5)');
             } else {
-                p.fill('rgba(255, 0, 0, 0.5)');
+                offscreenGraphics.fill('rgba(255, 0, 0, 0.5)');
             }
-            p.noStroke();
-            p.rect(resolution/4+ i, resolution/4 + j, gridResolution, gridResolution);
+            offscreenGraphics.noStroke();
+            offscreenGraphics.rect(resolution/4 + i, resolution/4 + j, gridResolution, gridResolution);
         }
     }
-    inputTensor.dispose(); // Always clean up tensors to prevent memory leak
-        
-    }
+    inputTensor.dispose();
+    p.clear()
+    // Now draw the off-screen buffer to the main canvas
+    p.image(offscreenGraphics, 0, 0);
+}
+
     //drawDecisionBoundaryTest();
 
   // ... (include all data generation functions here) ...
