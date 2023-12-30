@@ -34,7 +34,7 @@ new p5(p => {
         //drawMiddleDataPoint();
         //drawMiddleNetworkPoint();
         //runAllDataCanvasTests();
-        runVisualizationTests();
+        //runVisualizationTests();
     };
     function runVisualizationTests() {
         visualizeData();  // This will include the visualization test
@@ -229,7 +229,14 @@ function drawMiddleNetworkPoint() {
       label: d.label
     }));
   }
-
+  // Function to draw plus signs for the visualization
+  function drawPlusSign(x, y, size) {
+    const halfSize = size / 2;
+    canvas.strokeWeight(2);
+    canvas.stroke(0);
+    canvas.line(x - halfSize, y, x + halfSize, y);
+    canvas.line(x, y - halfSize, x, y + halfSize);
+  }
   function visualizeData() {
     let transformedPoints = []; // Array to store transformed points
     console.log(`Data area dims: ${p.width / 2}x${p.height}`);
@@ -237,21 +244,24 @@ function drawMiddleNetworkPoint() {
     for (let i = 0; i < currentData.length; i++) {
         let point = currentData[i];
         console.log(`In Loop: Data area dims: ${p.width / 2}x${p.height}`);
-        let transformedX = (point.x * p.width / 2);
-        let transformedY = (point.y * p.height);
+        
+        let transformedX = (resolution/2 + point.x * p.width / 2);
+        let transformedY = (resolution/2 + point.y * p.height);
 
         // Store the transformed points
         transformedPoints.push({ x: transformedX, y: transformedY, label: point.label });
 
         // Use the appropriate canvas context
-        p.stroke(0);
+        
         // Fix: Ensure that points of both classes are visualized
         if (point.label === 0) {
+            p.stroke('blue');
             p.fill('blue'); // Class 0 as circles
-            p.ellipse(transformedX, transformedY, resolution, resolution);
+            p.ellipse(transformedX, transformedY, resolution/4, resolution/4);
         } else {
+            p.stroke(0);
             p.fill('red'); // Class 1 as plus signs
-            drawPlusSign(transformedX, transformedY, resolution);
+            drawPlusSign(transformedX, transformedY, resolution/4);
         }
     }
 
@@ -380,6 +390,7 @@ function preTrainingChecks() {
     // Initialize or re-initialize the model with the selected activation function
     let activation = document.getElementById('activation').value;
     initializeModel(activation);
+    generateDecisionGrid();
     isTraining = true;
     //if (!preTrainingChecks()) return; 
     console.log(`Training with activation: ${activation}, learning rate: ${parseFloat(p.select('#learningRate').value())}`);
@@ -390,6 +401,9 @@ function preTrainingChecks() {
     p.loop(); // Start the draw loop
     // Disable the dataShape selector during training
     document.getElementById('dataShape').disabled = true;
+    document.getElementById('generateDataButton').disabled = true;
+    document.getElementById('trainModelButton').disabled = true;
+    document.getElementById('visualizeDataFlowButton').disabled = true;
     // Reset global tracking variables
     currentEpoch = 0;
     lossHistory = [];
@@ -410,31 +424,23 @@ function preTrainingChecks() {
           if (isNaN(log.loss)) {
             console.error('NaN loss detected. Check data, learning rate, and model architecture.');
             model.stopTraining = true; // Stop training if NaN loss is detected
+          } else { 
+            console.log(`Succeded in training epoch ${currentEpoch}. Preparing visualization step.`);
           }
           // Update visualization after each epoch
-          //await 
-          updateDataVisualization();
+          await updateDataVisualization();
           p.redraw(); // Redraw only when needed during training
         }
       }
     });
-    updateDataVisualization();
-    p.redraw(); // Redraw only when needed during training
     isTraining = false;
     p.noLoop(); // Stop the draw loop
     // Re-enable the dataShape selector after training
     document.getElementById('dataShape').disabled = false;
-
+    document.getElementById('generateDataButton').disabled = false;
+    document.getElementById('trainModelButton').disabled = false;
+    document.getElementById('visualizeDataFlowButton').disabled = false;
     document.getElementById('output').innerText = 'Training complete!';
-  }
-
-  // Function to draw plus signs for the visualization
-  function drawPlusSign(x, y, size) {
-    const halfSize = size / 2;
-    canvas.strokeWeight(2);
-    canvas.stroke(0);
-    canvas.line(x - halfSize, y, x + halfSize, y);
-    canvas.line(x, y - halfSize, x, y + halfSize);
   }
 
   // Function to draw the neural network visualization
@@ -482,38 +488,56 @@ function preTrainingChecks() {
   // Function to update data visualization
   function updateDataVisualization() {
     p.background(255);
-    visualizeData();  // This will draw on the left side
-    drawNetwork();  // This will draw on the right side
     if (isTraining) {
+        console.log(`Updating decision boundary`)
         drawDecisionBoundary();  // Update the data visualization area with decision boundary
     }
+    console.log(`Updating network`)
+    drawNetwork();  // This will draw on the right side
+    console.log(`Updating data visualization`)
+    visualizeData();  // This will draw on the left side
   }
+  let decisionBoundaryGrid = [];
+
+    function generateDecisionGrid() {
+        decisionBoundaryGrid = []; // Clear previous grid
+        let gridResolution = resolution / 2; // Adjust grid resolution as needed
+        for (let i = 0; i < dataAreaWidth; i += gridResolution) {
+            for (let j = 0; j < canvasHeight; j += gridResolution) {
+                let normX = i / dataAreaWidth;
+                let normY = j / canvasHeight;
+                decisionBoundaryGrid.push([normX, normY]);
+            }
+        }
+    }
 
   // Function to draw the decision boundary
-   function drawDecisionBoundary() {
-    // Use a finer grid for drawing the decision boundary
-    let gridResolution = resolution; // Adjust grid resolution as needed
+  async function drawDecisionBoundary() {
+    // Convert the entire grid to a tensor for batch prediction
+    let inputTensor = tf.tensor2d(decisionBoundaryGrid);
+    let predictions = await model.predict(inputTensor).data();
+
+    // Loop through each prediction and draw the corresponding rectangle
+    let index = 0;
+    let gridResolution = resolution / 2; // Ensure this matches the generateDecisionGrid resolution
     for (let i = 0; i < dataAreaWidth; i += gridResolution) {
         for (let j = 0; j < canvasHeight; j += gridResolution) {
-            let normX = i / dataAreaWidth;
-            let normY = j / canvasHeight;
-            let inputTensor = tf.tensor2d([[normX, normY]]);
-            let prediction = model.predict(inputTensor);
-            let predictedClass = ( prediction.data())[0] > 0.5 ? 1 : 0;
+            let predictedClass = predictions[index++] > 0.5 ? 1 : 0;
 
+            // Set fill color based on prediction
             if (predictedClass === 0) {
                 p.fill('rgba(0, 0, 255, 0.5)');
             } else {
                 p.fill('rgba(255, 0, 0, 0.5)');
             }
             p.noStroke();
-            p.rect(i, j, gridResolution, gridResolution);
-            inputTensor.dispose(); // Always clean up tensors to prevent memory leak
-            prediction.dispose();
+            p.rect(resolution/4+ i, resolution/4 + j, gridResolution, gridResolution);
         }
     }
+    inputTensor.dispose(); // Always clean up tensors to prevent memory leak
+        
+    }
     //drawDecisionBoundaryTest();
-}
 
   // ... (include all data generation functions here) ...
   // Function to generate a linearly separable dataset
@@ -620,22 +644,27 @@ function generateSpiralData() {
     let turns = 2;
     let pointsPerTurn = 100;
 
+    // Generate points for the first spiral
     for (let i = 0; i < turns * pointsPerTurn; i++) {
-        let angle = p.map(i, 0, turns * pointsPerTurn, 0, p.TWO_PI);
+        let angle = p.map(i, 0, turns * pointsPerTurn, 0, turns * p.TWO_PI);
         let radius = p.map(i, 0, turns * pointsPerTurn, 0, 1 / 3);
-        let x = 0.5 + radius * p.cos(angle);
-        let y = 0.5 + radius * p.sin(angle);
-        data.push({x: x, y: y, label: i % 2});
-
-        angle += Math.PI; // Offset for second spiral
-        x = 0.5 + radius * p.cos(angle);
-        y = 0.5 + radius * p.sin(angle);
-        data.push({x: x, y: y, label: (i + 1) % 2});
+        let x = 1 / 2 + radius * p.cos(angle);
+        let y = 1 / 2 + radius * p.sin(angle);
+        data.push({x: x, y: y, label: 0}); // Assign label 0 to all points of the first spiral
     }
 
-    console.log("Spiral Data Points:", data);
+    // Generate points for the second spiral
+    for (let i = 0; i < turns * pointsPerTurn; i++) {
+        let angle = p.map(i, 0, turns * pointsPerTurn, 0, turns * p.TWO_PI) + Math.PI;
+        let radius = p.map(i, 0, turns * pointsPerTurn, 0, 1 / 3);
+        let x = 1 / 2 + radius * p.cos(angle);
+        let y = 1 / 2 + radius * p.sin(angle);
+        data.push({x: x, y: y, label: 1}); // Assign label 1 to all points of the second spiral
+    }
+    console.log("Spirals Data Points:", data);
     return data;
 }
+
 
   // Adjusting event listeners for buttons using p5.js methods
   p.select('#generateDataButton').mouseClicked(() => {
