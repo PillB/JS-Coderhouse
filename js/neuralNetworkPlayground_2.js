@@ -12,7 +12,7 @@ let lossHistory = [];
 let resolution = 20;
 let dataAreaWidth, networkAreaStartX;
 let offscreenGraphics;
-let iterations = -1;
+let iterations = 100;
 // p5.js structure
 new p5(p => {
     let canvasWidth = 600; // Total width for both visualizations
