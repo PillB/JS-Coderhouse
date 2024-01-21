@@ -12,22 +12,29 @@ let lossHistory = [];
 let resolution = 20;
 let dataAreaWidth, networkAreaStartX;
 let offscreenGraphics;
-
+let iterations = -1;
 // p5.js structure
 new p5(p => {
     let canvasWidth = 600; // Total width for both visualizations
     let canvasHeight = 300;
-
+    let activation; 
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');
+        do{
+            iterations= parseInt(window.prompt("Please enter the number of epochs to train the model (training takes aprox. 1 sec per epoch)\nA higher epoch count generate a more accurate model.", 100));
+        }while(isNaN(iterations)|| iterations < 1);
+        totalEpochs = iterations
+        p.select('#epochInfo').html(`Epoch: 0/${totalEpochs}`);
         canvas = p.createCanvas(canvasWidth, canvasHeight).parent(vizContainer).id('combinedCanvas');
         dataAreaWidth = canvasWidth / 2;
         networkAreaStartX = canvasWidth / 2;
         p.noLoop(); // Prevent draw loop unless we are training
-
+        let activation = document.getElementById('activation').value;
         // Initialize TensorFlow.js model
+        // Initial setup call to populate the architecture table
         initializeModel(p.select('#activation').value());
+        createArchitectureTable();
         selectDataset();  // Prepare initial visualization
         offscreenGraphics = p.createGraphics(dataAreaWidth, canvasHeight);
         // Draw the points after the rest of the setup logic
@@ -174,21 +181,200 @@ function drawMiddleNetworkPoint() {
       layerVisuals.push(layerInfo);
     });
   }
+  
+  // Function to get the layers configuration from the TensorFlow.js model or return the default
+function getLayersFromModel() {
+    // Check if the model is defined
+    if (typeof model === 'undefined' || model.layers.length === 0) {
+        // Return the default architecture
+        return [
+            { units: 5, activation: 'sigmoid' }, // Input layer
+            { units: 4, activation: 'sigmoid' }, // Hidden layer
+            { units: 1, activation: 'sigmoid' } // Output layer
+        ];
+    } else {
+        // Extract the layers information from the model
+        return model.layers.map((layer, index) => {
+            // Assuming 'activation' is a property of the layer's configuration
+            let units = layer.units;
+            let activation = layer.activation ? layer.activation : (index === model.layers.length - 1) ? 'sigmoid' : 'relu';
+            return { units, activation };
+        });
+    }
+}
 
-  // Function to initialize the TensorFlow.js model
-  function initializeModel(activation) {
+function getLayersFromTable(activation) {
+    const tableBody = document.getElementById('architectureTable').querySelector('tbody');
+    let layers = [];
+
+    // Skip the first row (Input layer) and last row (Output layer)
+    for (let i = 1; i < tableBody.rows.length - 1; i++) {
+        let row = tableBody.rows[i];
+        let units = parseInt(row.cells[1].innerText, 10);
+        //let activation = 'relu'; // Default activation for hidden layers
+        layers.push({ units, activation });
+    }
+
+    return layers;
+}
+
+
+function initializeModel(activation) {
+    // Clear the previous model if it exists
+    if (typeof model !== 'undefined') {
+        model.dispose();
+    }
+
+    // Create the model
     model = tf.sequential();
-    model.add(tf.layers.dense({ units: 5, inputShape: [2], activation: activation }));
-    model.add(tf.layers.dense({ units: 4, activation: activation }));
+
+    // Add input layer (hardcoded as 2 units here)
+    model.add(tf.layers.dense({ units: 2, inputShape: [2], activation: activation }));
+
+    const layers = getLayersFromTable(activation); // Ignore the first and last rows in this function
+    layers.forEach((layer) => {
+        model.add(tf.layers.dense({ units: layer.units, activation: activation }));
+    });
+
+    // Add output layer (hardcoded as 1 unit here)
     model.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
 
     model.compile({
         optimizer: tf.train.adam(parseFloat(p.select('#learningRate').value())),
-      loss: 'binaryCrossentropy'
+        loss: 'binaryCrossentropy'
     });
 
     prepareVisualizationData();
-  }
+}
+
+
+// Function to update the event listeners for the buttons
+function updateEventListeners() {
+    const tableBody = document.getElementById('architectureTable').querySelector('tbody');
+
+    // Clear existing event listeners
+    ['add-unit', 'remove-unit', 'remove-layer'].forEach(className => {
+        const buttons = tableBody.querySelectorAll(`.${className}`);
+        buttons.forEach(button => button.onclick = null);
+    });
+
+    // Add new event listeners
+    const addUnitButtons = tableBody.querySelectorAll('.add-unit');
+    const removeUnitButtons = tableBody.querySelectorAll('.remove-unit');
+    const removeLayerButtons = tableBody.querySelectorAll('.remove-layer');
+
+    addUnitButtons.forEach((button, index) => {
+        // Correcting index by adding 1 to account for input layer
+        button.onclick = () => modifyUnits(index + 1, 1);
+    });
+
+    removeUnitButtons.forEach((button, index) => {
+        // Correcting index by adding 1 to account for input layer
+        button.onclick = () => modifyUnits(index + 1, -1);
+    });
+
+    removeLayerButtons.forEach((button, index) => {
+        // Correcting index by adding 1 to account for input layer
+        button.onclick = () => removeLayer(index + 1);
+    });
+}
+
+// Function to create the initial architecture table based on the current model
+function createArchitectureTable() {
+    const tableBody = document.getElementById('architectureTable').querySelector('tbody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    // Add input layer row
+    const inputLayerRow = document.createElement('tr');
+    inputLayerRow.innerHTML = `<td>Input Layer</td><td>2</td><td></td>`; // Input layer is fixed and has no actions
+    tableBody.appendChild(inputLayerRow);
+
+    // Add hidden layers from the model
+    const layers = getLayersFromModel();
+    layers.forEach((layer, index) => {
+        if (index === 0 || index === layers.length - 1) return; // Skip actual input and output layer
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>Hidden Layer ${index}</td>
+            <td>${layer.units}</td>
+            <td>
+                <button class="add-unit" id="add-unit-${index}">Add Unit</button>
+                <button class="remove-unit" id="remove-unit-${index}">Remove Unit</button>
+                <button class="remove-layer" id="remove-layer-${index}">Remove Layer</button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    // Add output layer row
+    const outputLayerRow = document.createElement('tr');
+    outputLayerRow.innerHTML = `<td>Output Layer</td><td>1</td><td></td>`; // Output layer is fixed and has no actions
+    tableBody.appendChild(outputLayerRow);
+
+    // Initialize the model with the current architecture and update the visualization
+    initializeModel(document.getElementById('activation').value);
+    updateDataVisualization();
+    updateEventListeners(); // Re-assign event listeners
+}
+
+// Function to add a new layer to the model
+function addLayer() {
+    const tableBody = p.select('#architectureTable tbody');
+    const newRow = p.createElement('tr');
+    const layerIndex = tableBody.child().length + 1; // Get the next layer index
+    newRow.child(p.createElement('td', `Layer ${layerIndex}`));
+    newRow.child(p.createElement('td', '1')); // Start with 1 unit for new layer
+
+    const actionsCell = p.createElement('td');
+    const addButton = p.createElement('button', 'Add Unit');
+    addButton.mouseClicked(() => modifyUnits(layerIndex - 1, 1));
+    actionsCell.child(addButton);
+
+    const removeButton = p.createElement('button', 'Remove Unit');
+    removeButton.mouseClicked(() => modifyUnits(layerIndex - 1, -1));
+    actionsCell.child(removeButton);
+
+    const removeLayerButton = p.createElement('button', 'Remove Layer');
+    removeLayerButton.mouseClicked(() => removeLayer(layerIndex - 1));
+    actionsCell.child(removeLayerButton);
+
+    newRow.child(actionsCell);
+    tableBody.child(newRow);
+    initializeModel(document.getElementById('activation').value);
+    updateDataVisualization();
+}
+
+// Function to modify the number of units in a layer
+function modifyUnits(layerIndex, change) {
+    const tableBody = document.getElementById('architectureTable').querySelector('tbody');
+    const row = tableBody.rows[layerIndex];
+    let units = parseInt(row.cells[1].innerText);
+    units += change;
+    if (units < 1) units = 1; // Minimum of 1 unit
+    row.cells[1].innerText = units;
+
+    // Reinitialize the model with updated units and redraw the visualization
+    initializeModel(document.getElementById('activation').value);
+    updateDataVisualization();
+}
+
+// Function to remove a layer
+function removeLayer(layerIndex) {
+    const tableBody = document.getElementById('architectureTable').querySelector('tbody');
+    tableBody.deleteRow(layerIndex); // Remove the layer from the table
+
+    // Reinitialize the model without the removed layer and redraw the visualization
+    initializeModel(document.getElementById('activation').value);
+    updateDataVisualization();
+    updateEventListeners(); // Update event listeners as they may have shifted
+}
+
+
+// Event listener for adding a new layer
+p.select('#addLayerButton').mouseClicked(addLayer);
+
+
 
   // Function to select dataset based on dropdown
   function selectDataset() {
@@ -197,8 +383,6 @@ function drawMiddleNetworkPoint() {
     isTraining = false;
     updateDataVisualization();
   }
-
-  // ...continuing from the previous code...
 
   // Function to generate data based on selection
   function generateData(selection) {
@@ -313,7 +497,6 @@ function validateDataShapeAndType(data) {
 }
 
 // Function to validate model architecture against expected specifications
-// Function to validate model architecture against expected specifications
 function validateModelArchitecture(model) {
     try {
         if (!model || !model.layers || model.layers.length === 0) {
@@ -390,7 +573,7 @@ function preTrainingChecks() {
   // Function to train the model
   async function trainModel() {
     // Initialize or re-initialize the model with the selected activation function
-    let activation = document.getElementById('activation').value;
+    activation = document.getElementById('activation').value;
     initializeModel(activation);
     generateDecisionGrid();
     isTraining = true;
@@ -446,46 +629,91 @@ function preTrainingChecks() {
   }
 
   // Function to draw the neural network visualization
-  // Function to draw the neural network visualization
   function drawNetwork() {
+    // Verify the canvas and model are defined
+    if (!canvas || !model) {
+        console.error('Canvas or model is undefined.');
+        return;
+    }
     let networkAreaWidth = canvasWidth / 2;
     let xSpacing = networkAreaWidth / (layerVisuals.length + 1);
-    let ySpacing = canvasHeight / (Math.max(...layerVisuals.map(l => l.nodes)) + 1);
+    let ySpacing = canvasHeight / (Math.max(2, ...layerVisuals.map(l => l.nodes), 1) + 1); // Including input and output layer nodes
 
-    // Drawing connections between nodes
-    for (let i = 1; i < layerVisuals.length; i++) {
-        let prevLayer = layerVisuals[i - 1];
+    // Drawing connections
+    // Start from the input layer (which has 2 units) and draw to the first hidden layer
+    let prevLayerNodes = 2; // Input layer has 2 units
+    let prevX = networkAreaStartX + xSpacing; // X position for the input layer
+
+    for (let i = 0; i < layerVisuals.length; i++) {
         let currentLayer = layerVisuals[i];
-        let prevX = networkAreaStartX + xSpacing * i;
-        let currentX = networkAreaStartX + xSpacing * (i + 1);
+        let currentX = networkAreaStartX + xSpacing * (i + 1); // Adjust for 0-based index and add 1 for input layer offset
+        //canvas.clear(); // Use clear instead of background to avoid covering the entire canvas
+        canvas.strokeWeight(1); // Set stroke weight for visibility
+        // Add check to verify model layer and weights exist
+        if (model.layers[i] && model.layers[i].getWeights().length > 0) {
+            let weights = model.layers[i].getWeights()[0].arraySync();
+            for (let j = 0; j < prevLayerNodes; j++) {
+                for (let k = 0; k < currentLayer.nodes; k++) {
+                    let prevY = ySpacing * (j + 1);
+                    let currentY = ySpacing * (k + 1);
 
-        for (let j = 0; j < prevLayer.nodes; j++) {
-            for (let k = 0; k < currentLayer.nodes; k++) {
-                let prevY = ySpacing * (j + 1);
-                let currentY = ySpacing * (k + 1);
-                let weight = model.layers[i].getWeights()[0].arraySync()[j][k];
-                let opacity = p.map(Math.abs(weight), 0, 1, 50, 255); // Use absolute weight for opacity
-                let strokeColor = weight > 0 ? p.color(0, 255, 0, opacity) : p.color(255, 0, 0, opacity);
-                p.stroke(strokeColor);
-                p.line(prevX, prevY, currentX, currentY);
+                    // Access the correct weight matrix from the model
+                    //let weightMatrixIndex = i == 0 ? 0 : i - 1;
+                    //let weight = model.layers[weightMatrixIndex].getWeights()[0].arraySync()[j][k];
+                    let weight = weights[j][k];
+                    let opacity = p.map(Math.abs(weight), 0, 1, 20, 255);
+                    let thickness = p.map(Math.abs(weight), 0, 1, 2, 6);
+                    let strokeColor = weight > 0 ? p.color(0, 255, 0, opacity) : p.color(255, 0, 0, opacity);
+
+                    p.strokeWeight(thickness);
+                    p.stroke(strokeColor);
+                    p.line(prevX, prevY, currentX, currentY);
+                    p.strokeWeight(2);
+                }
             }
+        } else {
+            console.error('Model layer or weights at index ' + i + ' are undefined.');
         }
+
+        // Set up for the next layer
+        prevLayerNodes = currentLayer.nodes;
+        prevX = currentX;
     }
 
-    // Drawing nodes on top of connections
+    // Drawing nodes
+    // Include the input layer with 2 units
+    let inputLayerX = networkAreaStartX + xSpacing;
+    for (let j = 0; j < 2; j++) { // Draw 2 nodes for input layer
+        let y = ySpacing * (j + 1);
+        p.fill(255); // Assuming input nodes are white
+        p.stroke(0);
+        p.ellipse(inputLayerX, y, 20, 20);
+    }
+
+    // Draw hidden and output layers
     for (let i = 0; i < layerVisuals.length; i++) {
         let layer = layerVisuals[i];
-        let x = networkAreaStartX + xSpacing * (i + 1);
+        let x = networkAreaStartX + xSpacing * (i + 1); // Adjust for 0-based index and add 1 for input layer offset
+
         for (let j = 0; j < layer.nodes; j++) {
             let y = ySpacing * (j + 1);
             let activation = layer.activations[j];
             let nodeColor = p.lerpColor(p.color(255, 255, 255), p.color(0, 0, 255), activation);
+
             p.fill(nodeColor);
             p.stroke(0);
             p.ellipse(x, y, 20, 20);
         }
     }
-  }
+
+    // Draw the output layer with 1 unit
+    let outputLayerX = networkAreaStartX + xSpacing * (layerVisuals.length + 1);
+    let outputY = ySpacing; // Only one node for output layer
+    p.fill(255); // Assuming output nodes are white
+    p.stroke(0);
+    p.ellipse(outputLayerX, outputY, 20, 20);
+}
+
   
   // Function to update data visualization
   async function updateDataVisualization() {
@@ -493,11 +721,13 @@ function preTrainingChecks() {
     if (isTraining) {
         console.log(`Updating decision boundary`)
         await drawDecisionBoundary();  // Update the data visualization area with decision boundary
+    } else {
+        p.background(255);
     }
     console.log(`Updating network`)
-    drawNetwork();  // This will draw on the right side
+    await drawNetwork();  // This will draw on the right side
     console.log(`Updating data visualization`)
-    visualizeData();  // This will draw on the left side
+    await visualizeData();  // This will draw on the left side
   }
   let decisionBoundaryGrid = [];
 
@@ -530,7 +760,7 @@ function preTrainingChecks() {
                 offscreenGraphics.fill('rgba(255, 0, 0, 0.5)');
             }
             offscreenGraphics.noStroke();
-            offscreenGraphics.rect(resolution/4 + i, resolution/4 + j, gridResolution, gridResolution);
+            offscreenGraphics.rect(resolution/8 + i, resolution/8 + j, gridResolution, gridResolution);
         }
     }
     inputTensor.dispose();
