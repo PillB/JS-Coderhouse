@@ -13,18 +13,28 @@ let resolution = 20;
 let dataAreaWidth, networkAreaStartX;
 let offscreenGraphics;
 let iterations = 100;
+let username;
 // p5.js structure
 new p5(p => {
     let canvasWidth = 600; // Total width for both visualizations
     let canvasHeight = 300;
     let activation; 
+    if (localStorage.getItem("username") === null) {
+        username = window.prompt("Please enter your name","Your name here.");
+        localStorage.setItem('username',username);
+        alert("Hello, "+username+"!");
+    }else{
+        username = localStorage.getItem('username');
+        alert("Welcome back, "+username+"!");
+    }
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');
         do{
             iterations= parseInt(window.prompt("Please enter the number of epochs to train the model (training takes aprox. 1 sec per epoch)\nA higher epoch count generate a more accurate model.", 100));
         }while(isNaN(iterations)|| iterations < 1);
-        totalEpochs = iterations
+        
+        totalEpochs = iterations;
         p.select('#epochInfo').html(`Epoch: 0/${totalEpochs}`);
         canvas = p.createCanvas(canvasWidth, canvasHeight).parent(vizContainer).id('combinedCanvas');
         dataAreaWidth = canvasWidth / 2;
