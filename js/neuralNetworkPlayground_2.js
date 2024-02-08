@@ -27,13 +27,17 @@ new p5(p => {
         username = localStorage.getItem('username');
         alert("Welcome back, "+username+"!");
     }
+    console.log("Before loop");
+    do{
+        iterations = parseInt(window.prompt("Please enter the number of epochs to train the model (training takes aprox. 1 sec per epoch)\nA higher epoch count generate a more accurate model.", 100));
+        console.log("User entered:", iterations);
+    }while(isNaN(iterations) || iterations < 1);
+    console.log("After loop");
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');
-        do{
-            iterations= parseInt(window.prompt("Please enter the number of epochs to train the model (training takes aprox. 1 sec per epoch)\nA higher epoch count generate a more accurate model.", 100));
-        }while(isNaN(iterations)|| iterations < 1);
         
+
         totalEpochs = iterations;
         p.select('#epochInfo').html(`Epoch: 0/${totalEpochs}`);
         canvas = p.createCanvas(canvasWidth, canvasHeight).parent(vizContainer).id('combinedCanvas');
