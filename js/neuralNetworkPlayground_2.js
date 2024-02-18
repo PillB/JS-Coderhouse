@@ -51,6 +51,77 @@ function askForEpochs() {
         }
     });
 }
+function showActivationFunctionInfo() {
+    Swal.fire({
+        title: 'Activation Functions',
+        text: 'Choose an activation function that determines the output of each node in the network. Sigmoid and tanh are suitable for binary classification, while ReLU is often used for hidden layers in deep networks.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+function showLearningRateInfo() {
+    Swal.fire({
+        title: 'Learning Rate',
+        text: 'The learning rate controls how quickly the model is adapted to the problem. Smaller rates require more training epochs due to slower updates, while larger rates might lead to rapid convergence but can overshoot optimal solutions.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showActivationFunctionInfo() {
+    Swal.fire({
+        title: 'Activation Functions',
+        text: 'Activation functions determine the output of each node in a neural network. Sigmoid and tanh functions output values in a (0,1) or (-1,1) range and are often used in binary classification. ReLU is less computationally intensive and provides an output range of [0, ∞), which helps with certain types of deep networks.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showDataShapeInfo() {
+    Swal.fire({
+        title: 'Data Shapes',
+        text: 'Select the shape of the dataset to be generated. Different shapes can simulate various classification problems, testing the model’s ability to capture complex patterns.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showGenerateDataInfo() {
+    Swal.fire({
+        title: 'Generate Dataset',
+        text: 'Click to generate a new dataset based on the selected data shape. This will be the data used to train and evaluate the neural network model.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showTrainModelInfo() {
+    Swal.fire({
+        title: 'Train Network',
+        text: 'Begins the training process of the neural network with the generated dataset. Training may take time depending on the number of epochs set.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showEpochInfo() {
+    Swal.fire({
+        title: 'Epochs',
+        text: 'An epoch represents one complete pass through the entire training dataset. The number of epochs is the number of times the learning algorithm will work through the entire dataset.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
+function showLossInfo() {
+    Swal.fire({
+        title: 'Loss',
+        text: 'Loss is a number indicating how bad the model’s prediction was on a single example. It is the value that a neural network attempts to minimize during training.',
+        icon: 'info',
+        confirmButtonText: 'Got it!'
+    });
+}
+
 // p5.js structure
 new p5(p => {
     let canvasWidth = 600; // Total width for both visualizations
@@ -81,11 +152,8 @@ new p5(p => {
         greetUser(username);
     }
     console.log("Before loop");
-    do{
-        askForEpochs();
-        console.log("User entered:", iterations);
-    }while(isNaN(iterations) || iterations < 1);
-    console.log("After loop");
+    askForEpochs;
+    
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');

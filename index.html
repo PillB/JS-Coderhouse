@@ -14,6 +14,7 @@
     <div>
         <label for="learningRate">Learning Rate:</label>
         <input type="number" id="learningRate" value="0.01" step="0.01" min="0.01" max="1">
+        <i class="info-icon" onclick="showLearningRateInfo()">ℹ️</i>
     </div>
     <div>
         <label for="activation">Activation Function:</label>
@@ -22,6 +23,7 @@
             <option value="relu">ReLU</option>
             <option value="tanh">Tanh</option>
         </select>
+        <i class="info-icon" onclick="showActivationFunctionInfo()">ℹ️</i>
     </div>
     <select id="dataShape">
         <option value="linear">Linear</option>
@@ -31,12 +33,15 @@
         <option value="moons">Moons</option>
         <option value="spiral">Spiral</option>
         <!-- Add more shapes as needed -->
-    </select>    
-    <button id="generateDataButton">Generate Dataset</button>
-    <button id="trainModelButton">Train Network</button>
+    </select>
+    <i class="info-icon" onclick="showDataShapeInfo()">ℹ️</i>
+    <button id="generateDataButton">Generate Dataset</button><button id="generateDataButton" onclick="showGenerateDataInfo()">Generate Dataset</button>
+    <button id="trainModelButton">Train Network</button><button id="trainModelButton" onclick="showTrainModelInfo()">Train Network</button>
     <div id="trainingStatus">
-        <span id="epochInfo">Epoch: 0/100</span> <!-- Place this near the Train button -->
-        <span id="lossInfo">Loss: N/A</span> <!-- Place this near the Train button -->
+        <span id="epochInfo">Epoch: 0/100</span>
+        <i class="info-icon" onclick="showEpochInfo()">ℹ️</i>
+        <span id="lossInfo">Loss: N/A</span>
+        <i class="info-icon" onclick="showLossInfo()">ℹ️</i>
     </div>
     <div id="output"></div>
     <div id="networkArchitecture">
