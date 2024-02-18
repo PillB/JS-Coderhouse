@@ -14,30 +14,81 @@ let dataAreaWidth, networkAreaStartX;
 let offscreenGraphics;
 let iterations = 100;
 let username;
+function greetUser(userName) {
+    Swal.fire({
+        title: 'Welcome!',
+        text: `Hello, ${userName}!`,
+        icon: 'success',
+        confirmButtonText: 'Continue'
+    });
+}
+// Function to ask for the number of epochs
+function askForEpochs() {
+    Swal.fire({
+        title: 'Set Training Epochs',
+        input: 'number',
+        inputLabel: 'Please enter the number of epochs to train the model',
+        inputPlaceholder: 'Enter a number',
+        inputValue: 100,
+        inputAttributes: {
+            min: 1,
+            max: 10000,
+            step: 1
+        },
+        showCancelButton: true,
+        inputValidator: (value) => {
+            if (!value) {
+                return 'You need to enter a number!';
+            } else if (parseInt(value) <= 0) {
+                return 'The number of epochs must be greater than zero.';
+            }
+        }
+    }).then((result) => {
+        if (result.value) {
+            // Save the number of epochs and start training
+            iterations = parseInt(result.value);
+            
+        }
+    });
+}
 // p5.js structure
 new p5(p => {
     let canvasWidth = 600; // Total width for both visualizations
     let canvasHeight = 300;
     let activation; 
     if (localStorage.getItem("username") === null) {
-        username = window.prompt("Please enter your name","Your name here.");
-        localStorage.setItem('username',username);
-        alert("Hello, "+username+"!");
+        document.addEventListener('DOMContentLoaded', () => {
+            Swal.fire({
+                title: 'Enter your name',
+                input: 'text',
+                inputLabel: 'Your name',
+                inputPlaceholder: 'Type your name here',
+                inputValidator: (value) => {
+                    if (!value) {
+                        return 'You need to write something!';
+                    }
+                }
+            }).then((result) => {
+                if (result.value) {
+                    // Save the name in localStorage
+                    localStorage.setItem('username', result.value);
+                    greetUser(result.value);
+                }
+            });
+        });
     }else{
         username = localStorage.getItem('username');
-        alert("Welcome back, "+username+"!");
+        greetUser(username);
     }
     console.log("Before loop");
     do{
-        iterations = parseInt(window.prompt("Please enter the number of epochs to train the model (training takes aprox. 1 sec per epoch)\nA higher epoch count generate a more accurate model.", 100));
+        askForEpochs();
         console.log("User entered:", iterations);
     }while(isNaN(iterations) || iterations < 1);
     console.log("After loop");
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');
-        
-
         totalEpochs = iterations;
         p.select('#epochInfo').html(`Epoch: 0/${totalEpochs}`);
         canvas = p.createCanvas(canvasWidth, canvasHeight).parent(vizContainer).id('combinedCanvas');
