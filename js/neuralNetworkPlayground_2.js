@@ -154,6 +154,89 @@ new p5(p => {
     console.log("Before loop");
     askForEpochs;
     
+
+    async function loadDatasetFromAPI(datasetId) {
+        try {
+            // Fetch dataset features
+            const responseFeatures = await fetch(`https://www.openml.org/api/v1/json/data/features/${datasetId}`);
+            const dataFeatures = await responseFeatures.json();
+            const features = dataFeatures.data_features.feature;
+            
+            // Identify which feature is the target and which are inputs
+            const targetFeature = features.find(feature => feature.is_target === "true");
+            const inputFeatures = features.filter(feature => feature.is_target === "false");
+    
+            // Assuming you have a function to fetch the actual dataset rows based on these features
+            const datasetRows = await fetchDatasetRows(datasetId, inputFeatures, targetFeature);
+            const transformedData = transformData(datasetRows, inputFeatures, targetFeature);
+            
+            // Now use this transformed data
+            currentData = transformedData;
+            isTraining = false;
+            updateDataVisualization();
+        } catch (error) {
+            console.error("There was an error fetching the dataset:", error);
+        }
+    }
+    
+    async function fetchDatasetRows(datasetId, inputFeatures, targetFeature) {
+        try {
+            // Assuming 'parquet_url' is obtained from the dataset description API call
+            const datasetInfoResponse = await fetch(`https://www.openml.org/api/v1/json/data/${datasetId}`);
+            const datasetInfo = await datasetInfoResponse.json();
+            const parquetUrl = datasetInfo.data_set_description.parquet_url;
+    
+            // Use loaders.gl to read the Parquet file
+            const rows = await load(parquetUrl, ParquetLoader);
+            
+            // Transform the rows into the required format
+            return rows.map(row => {
+                const inputs = inputFeatures.map(feature => row[feature.name]);
+                const label = row[targetFeature.name];
+                return { inputs, label };
+            });
+        } catch (error) {
+            console.error("Error fetching or parsing dataset rows:", error);
+            return [];
+        }
+    }
+    
+    function transformData(data) {
+        // Assuming 'data' is an array of objects with 'inputs' and 'label'
+        const featureValues = data.map(row => row.inputs);
+    
+        // Determine all unique classes
+        const uniqueClasses = Array.from(new Set(data.map(row => row.label)));
+        const firstClass = uniqueClasses[0]; // Select the first class
+    
+        // Map the first class to 0 and all others to 1
+        const targetValues = data.map(row => row.label === firstClass ? 0 : 1);
+    
+        // Apply PCA on the feature values
+        const pcaResult = applyPCA(featureValues, 2);
+    
+        // Combine PCA result with target labels
+        const transformedData = pcaResult.map((pcaFeatures, index) => ({
+            x: pcaFeatures[0],
+            y: pcaFeatures[1],
+            label: targetValues[index]
+        }));
+    
+        return transformedData;
+    }
+    
+
+    async function applyPCA(data, targetDims) {
+        const dataTensor = tf.tensor2d(data);
+        const mean = dataTensor.mean(0);
+        const centeredData = dataTensor.sub(mean);
+        const covMatrix = tf.matMul(centeredData, centeredData, false, true).div(dataTensor.shape[0] - 1);
+        const { u, s, v } = tf.linalg.svd(covMatrix);
+        const pcaResult = tf.matMul(centeredData, v.slice([0, 0], [v.shape[0], targetDims]));
+        return pcaResult.arraySync();  // Use arraySync for synchronous return
+    }
+    
+    
     // p5.js setup function
     p.setup = () => {
         let vizContainer = p.select('#Viz');

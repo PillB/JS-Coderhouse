@@ -7,6 +7,9 @@
     <link rel="stylesheet" href="css/style.css">
     <!-- SweetAlert Library -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@loaders.gl/core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@loaders.gl/parquet"></script>
+
 </head>
 <body>
     <h1>Neural Network Playground</h1>
@@ -36,6 +39,15 @@
     </select>
     <i class="info-icon" onclick="showDataShapeInfo()">ℹ️</i>
     <button id="generateDataButton">Generate Dataset</button><button id="generateDataButton" onclick="showGenerateDataInfo()">Generate Dataset</button>
+    <div>
+        <label for="datasetApi">Choose a dataset from OpenML:</label>
+        <select id="datasetApi">
+            <option value="61">Iris</option>
+            <option value="37">Diabetes</option>
+            <!-- Add more datasets as needed -->
+        </select>    
+        <button onclick="loadDatasetFromAPI(document.getElementById('datasetApi').value)">Load Dataset</button>
+    </div>
     <button id="trainModelButton">Train Network</button><button id="trainModelButton" onclick="showTrainModelInfo()">Train Network</button>
     <div id="trainingStatus">
         <span id="epochInfo">Epoch: 0/100</span>
